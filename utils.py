@@ -33,18 +33,30 @@ def get_df(DF):
 
 
 id_nom = {}  ### hashmap id-->Nombre
-oblig_detail = {} ### hashmap oblig-->Nombre
 
-def ed_basic_info(DF):
+Dic_Obligacion = {}
+
+
+def ed_basic_info(DF, sinon, req, oblig_data, sumar_saldo=False):
+    """
+    Fits the data of a DF to fill the Diccionario_Retornar.
+
+    DF: pandas dataframe
+    sinon: dictionary of synonyms
+    req: set of required columns
+    oblig_data: columns corresponding to an obligation
+    sumar_saldo: determines whether or not to sum balances when there is no SALDO_TOTAL
+    """
     DF.columns = DF.columns.str.strip()
     DF.columns = [Limpieza_Final_Str(j).replace(" ", "_") for j in list(DF.columns)]
     cols = set(DF.columns)
-    req = {'IDENTIFICACION', 'OBLIGACION'}
     for i in cols & req:
         DF[i] = DF[i].astype(str)
-    if 'NUMERO_DE_IDENTIFICACION' in cols:
-        DF['IDENTIFICACION'] = DF['NUMERO_DE_IDENTIFICACION']
-
+    keys = set(sinon.keys())
+    for i in keys & cols:
+        DF[sinon[i]] = DF[i]
+    if sumar_saldo and 'SALDO_TOTAL' not in set(DF.columns):
+        DF['SALDO_TOTAL'] = DF.filter(regex='^SALDO').replace('[\$,.]', '', regex=True).astype(float).sum(axis=1)
     if DF.IDENTIFICACION.isna().any():
         DF['IDENTIFICACION'] = DF['IDENTIFICACION'].fillna(method='ffill')
 
@@ -52,14 +64,10 @@ def ed_basic_info(DF):
     if name_parts < cols:
         DF['NOMBRE'] = DF[list(name_parts)].apply(lambda row: ' '.join(row.values.astype(str)), axis=1)
 
-    if 'OBLIGACION' not in cols and 'CONTRATO' in cols:
-        DF['OBLIGACION'] = DF['CONTRATO']
-    if 'OBLIGACION' not in cols and 'OBLIGACION16' in cols:
-        DF['OBLIGACION'] = DF['OBLIGACION16']
     cols = set(DF.columns)
     list_names = list(DF.filter(regex='^NOMBRE').columns)
     if list_names == ['NOMBRE_REC_ANTERIOR']:
-        DF['NOMBRE'] = ['NN']*len(DF)
+        DF['NOMBRE'] = [None] * len(DF)
         list_names = []
     if list_names and 'NOMBRE' not in cols:
         if 'NOMBRE_TITULAR' in list_names:
@@ -68,16 +76,25 @@ def ed_basic_info(DF):
         else:
             DF['NOMBRE'] = DF.pop(list_names[0])
 
-    important_cols = ['IDENTIFICACION', 'NOMBRE', 'OBLIGACION']
-    DF.drop(columns=[col for col in DF if col not in important_cols], inplace=True)
+    DF.drop(columns=[col for col in DF if col not in req], inplace=True)
+    for col in req - cols:
+        DF[col] = [None] * len(DF)
+    for col in req:
+        DF[col] = DF[col].astype(str)
 
-    DF.IDENTIFICACION = DF.IDENTIFICACION.astype(str)
     DF.IDENTIFICACION = DF.IDENTIFICACION.apply(lambda v: v.replace('.0', ''))
-    DF.IDENTIFICACION = DF.IDENTIFICACION.astype(str)
-    DF.NOMBRE = DF.NOMBRE.astype(str)
-    DF.OBLIGACION = DF.OBLIGACION.astype(str)
     DF.NOMBRE = DF.NOMBRE.apply(lambda x: Limpieza_Final_Str(x))
     for row in range(len(DF)):
         names = id_nom.setdefault(DF['IDENTIFICACION'][row], [])
         if len(DF['NOMBRE'][row]) > 0 and DF['NOMBRE'][row] not in names:
             names.append(DF['NOMBRE'][row])
+        history = Dic_Obligacion.setdefault(DF['OBLIGACION'][row], {})
+        for atribute in oblig_data:
+            history[atribute] = history.setdefault(atribute, set())
+            history[atribute].add(DF[atribute][row])
+
+# for key in Diccionario_Com:
+#     DF = get_df(Diccionario_Com[key])
+#     if 'SALDO_TOTAL' not in DF.filter(regex='SALDO').columns:
+#         print(key)
+#         print(DF.filter(regex='^SALDO').columns)
