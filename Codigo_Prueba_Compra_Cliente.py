@@ -9,7 +9,6 @@ import ray
 import psutil
 import gc
 import statistics as stats
-
 from utils import *
 
 
@@ -124,20 +123,14 @@ Diccionario_Info_Clientes_Compra = {
 key = list(Diccionario_Com.keys())[-1]
 Nombre_Archivo = key.split("/")[-1]
 
-id_nom = {}  ### hashmap id-->Nombre
-data = {}  ### hashmap NombreArchivo-->Data
+
+data = {}  ### hashmap NombreArchivo--> processed data frame
 for key in Diccionario_Com:
     data[key] = get_df(Diccionario_Com[key])
     ed_basic_info(data[key])
-    list_names = list(data[key].filter(regex='^NOMBRE').columns)
-    if list_names:
-        data[key]['NOMBRE'] = data[key].pop(list_names[0])
-        print(key)
-        for row in range(len(data[key])):
-            names = id_nom.setdefault(data[key]['IDENTIFICACION'][row], [])
-            if len(data[key]['NOMBRE'][row]) > 0 and data[key]['NOMBRE'][row] not in names:
-                names.append(data[key]['NOMBRE'][row])
-                # print(len(names))
+    print(key)
+
+
 
 # DF.columns = [Limpieza_Final_Str(j).replace(" ","_") for j in list(DF.columns)]
 # DF.IDENTIFICACION = DF.IDENTIFICACION.astype(str)
@@ -152,53 +145,63 @@ Diccionario_Retornar = dict()
 
 # dato_ident = DF.query("IDENTIFICACION == @ident")
 
-Num_Obligaciones = {}  # hashmap Nombre_Archivo --> Num Obligaciones {identificacion: #obligaciones}
-List_Obligaciones = {}
+Num_Obligaciones_id = {}  # hashmap Nombre_Archivo --> Num Obligaciones {identificacion: #obligaciones}
+List_Obligaciones_id = {}
+
 for Nombre_Archivo in data:
     try:
-
+        # Obligaciones by identificacion
         d_aux = data[Nombre_Archivo][['IDENTIFICACION',
                                       'OBLIGACION']].drop_duplicates()
         d_aux1 = d_aux.groupby(['IDENTIFICACION']).nunique()
-        Num_Obligaciones[Nombre_Archivo] = d_aux1.to_dict()['OBLIGACION']
-        List_Obligaciones[Nombre_Archivo] = d_aux.groupby('IDENTIFICACION')['OBLIGACION'].apply(list)
+        Num_Obligaciones_id[Nombre_Archivo] = d_aux1.to_dict()['OBLIGACION']
+        List_Obligaciones_id[Nombre_Archivo] = d_aux.groupby('IDENTIFICACION')['OBLIGACION'].apply(list)
+
+
     except:
 
         raise NoExiste(f'No se ha encontrado Obligaciones en el archivo{Nombre_Archivo}')
 
-# print(Num_Obligaciones)
-# Diccionario_Retornar[ident][Nombre_Archivo]["Cantidad_Obligaciones"] = len(dato_ident.OBLIGACION.drop_duplicates())
-# try:
-#     Diccionario_Retornar[ident][Nombre_Archivo]["NOMBRE"] = stats.mode(dato_ident.NOMBRE.tolist())
-# except:
-#     Diccionario_Retornar[ident][Nombre_Archivo]["NOMBRE"] = dato_ident.NOMBRE.tolist()[0]
-#
-#
-# Diccionario_Retornar[ident][Nombre_Archivo]["OBLIGACIONES"] = dato_ident.OBLIGACION.drop_duplicates().tolist()
-# def Encontrar_Info_Obligacion(Ob):
-#     try:
-#         dato_ob = dato_ident.query("OBLIGACION == @ob")
-#         dic_return = {}
-#         dic_return["FECHA_APERTURA"] = dato_ob.FECHA_APERTURA.tolist()[0]
-#         dic_return["SALDO_TOTAL"] = dato_ob.SALDO_TOTAL.tolist()[0]
-#         dic_return["CUPO_APROBADO"] = dato_ob.CUPO_APROBADO.tolist()[0]
-#         dic_return["FECHA_CASTIGO"] = dato_ob.FECHA_CASTIGO.tolist()[0]
-#         dic_return["DIAS_MORA_ACTUAL"] = dato_ob.DIAS_MORA_ACTUAL.tolist()[0]
-#         dic_return["TASA_INTERES_CTE"] = dato_ob.TASA_INTERES_CTE.tolist()[0]
-#         dic_return["CUOTA"] = dato_ob.CUOTA.tolist()[0]
-#         dic_return["DESCRIPCION_CONVENIO_CLIENTE"] = dato_ob.DESCRIPCION_CONVENIO_CLIENTE.tolist()[0]
-#         dic_return["DESCRIPCION_PRODUCTO"] = dato_ob.DESCRIPCION_PRODUCTO.tolist()[0]
-#         dic_return["SALDO_CAPITAL_CLIENTE"] = dato_ob.SALDO_CAPITAL_CLIENTE.tolist()[0]
-#
-#         return(dic_return)
-#     except:
-#        return("ERROR")
-#
-#
-# for ob in Diccionario_Retornar[ident][Nombre_Archivo]["OBLIGACIONES"]:
-#     Diccionario_Retornar[ident][Nombre_Archivo][ob] = Encontrar_Info_Obligacion(ob)
-#
-#
+
+
+for ident in id_nom:
+    Diccionario_Retornar[ident] = {}
+    for Nombre_Archivo in Num_Obligaciones_id:
+        Diccionario_Retornar[ident][Nombre_Archivo] = {}
+        if ident in Num_Obligaciones_id[Nombre_Archivo]:
+            Diccionario_Retornar[ident][Nombre_Archivo]["OBLIGACIONES"] = Num_Obligaciones_id[Nombre_Archivo][ident]
+            try:
+                Diccionario_Retornar[ident][Nombre_Archivo]["NOMBRE"] = stats.mode(id_nom[ident])
+            except:
+                Diccionario_Retornar[ident][Nombre_Archivo]["NOMBRE"] = id_nom[ident][0]
+
+
+
+Diccionario_Retornar
+def Encontrar_Info_Obligacion(Ob):
+    try:
+        dato_ob = dato_ident.query("OBLIGACION == @ob")
+        dic_return = {}
+        dic_return["FECHA_APERTURA"] = dato_ob.FECHA_APERTURA.tolist()[0]
+        dic_return["SALDO_TOTAL"] = dato_ob.SALDO_TOTAL.tolist()[0]
+        dic_return["CUPO_APROBADO"] = dato_ob.CUPO_APROBADO.tolist()[0]
+        dic_return["FECHA_CASTIGO"] = dato_ob.FECHA_CASTIGO.tolist()[0]
+        dic_return["DIAS_MORA_ACTUAL"] = dato_ob.DIAS_MORA_ACTUAL.tolist()[0]
+        dic_return["TASA_INTERES_CTE"] = dato_ob.TASA_INTERES_CTE.tolist()[0]
+        dic_return["CUOTA"] = dato_ob.CUOTA.tolist()[0]
+        dic_return["DESCRIPCION_CONVENIO_CLIENTE"] = dato_ob.DESCRIPCION_CONVENIO_CLIENTE.tolist()[0]
+        dic_return["DESCRIPCION_PRODUCTO"] = dato_ob.DESCRIPCION_PRODUCTO.tolist()[0]
+        dic_return["SALDO_CAPITAL_CLIENTE"] = dato_ob.SALDO_CAPITAL_CLIENTE.tolist()[0]
+
+        return(dic_return)
+    except:
+       return("ERROR")
+
+
+for ob in Diccionario_Retornar[ident][Nombre_Archivo]["OBLIGACIONES"]:
+    Diccionario_Retornar[ident][Nombre_Archivo][ob] = Encontrar_Info_Obligacion(ob)
+
+
 #
 #
 #
