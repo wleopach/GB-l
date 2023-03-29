@@ -54,9 +54,24 @@ def ed_basic_info(DF, sinon, req, oblig_data, sumar_saldo=False):
         DF[i] = DF[i].astype(str)
     keys = set(sinon.keys())
     for i in keys & cols:
-        DF[sinon[i]] = DF[i]
+        if sinon[i] not in cols:
+            DF[sinon[i]] = DF[i]
+        if i == 'NUMERO_DE_IDENTIFICACION':
+            DF[sinon[i]] = DF[i]
+
+    ##### if FECHA_CASTIGO_MIN ----> FECHA_CASTIGO= FECHA_CASTIGO_MIN
+    if 'FECHA_CASTIGO_MIN' in set(DF.columns):
+        DF['FECHA_CASTIGO'] = DF['FECHA_CASTIGO_MIN']
+
+    ##### if not SALDO_TOTAL ==> SUM *SALDO
     if sumar_saldo and 'SALDO_TOTAL' not in set(DF.columns):
         DF['SALDO_TOTAL'] = DF.filter(regex='^SALDO').replace('[\$,.]', '', regex=True).astype(float).sum(axis=1)
+
+    cols = set(DF.columns)
+    ##### if not SALDO_CAPITAL_CLIENT ==> GROUPBY ID AND SUM SALDO_CAPITAL_VENDIDO
+    if 'SALDO_CAPITAL_VENDIDO' in cols and 'SALDO_CAPITAL_CLIENTE' not in cols:
+        qu = DF.groupby('IDENTIFICACION')['SALDO_CAPITAL_VENDIDO'].sum().reset_index()
+        DF['SALDO_CAPITAL_CLIENTE'] = DF['IDENTIFICACION'].apply(lambda x: scv(qu, x))
     if DF.IDENTIFICACION.isna().any():
         DF['IDENTIFICACION'] = DF['IDENTIFICACION'].fillna(method='ffill')
 
@@ -92,9 +107,30 @@ def ed_basic_info(DF, sinon, req, oblig_data, sumar_saldo=False):
         for atribute in oblig_data:
             history[atribute] = history.setdefault(atribute, set())
             history[atribute].add(DF[atribute][row])
+    for i in cols & req:
+        DF[i] = DF[i].astype(str)
+
 
 # for key in Diccionario_Com:
 #     DF = get_df(Diccionario_Com[key])
 #     if 'SALDO_TOTAL' not in DF.filter(regex='SALDO').columns:
 #         print(key)
 #         print(DF.filter(regex='^SALDO').columns)
+
+def scv(qu, id):
+    """Returns result in a query by id"""
+    return qu[qu['IDENTIFICACION'] == id]['SALDO_CAPITAL_VENDIDO'].values[0]
+
+
+def check_cols(data):
+    """Prints the name of the archives and the  None columns """
+    nf_cols = {}
+    for key in data:
+        mask = data[key].astype(str).apply(lambda x: x.str.contains('None')).any(axis=0)
+        result = data[key].loc[:5, mask]
+        nf_cols[key] = set(result.columns)
+    for k in nf_cols:
+        print(f"IN {k.split('/')[-1]} : {nf_cols[k]}")
+
+
+
