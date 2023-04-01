@@ -9,12 +9,14 @@ files = os.listdir(PATH)
 paths = {'Pagos': f'{PATH}/Dicc_Datos_Propia_Pagos.pickle',
          'Evolucion': f'{PATH}/Dicc_Datos_Propia_Evolucion.pickle',
          'Asignacion': f'{PATH}/Dicc_Datos_Propia_Asignacion.pickle',
-         'Cartera': f'/home/leopach/tulipan/GB/GB-l/Diccionario_Retornar.pickle'
+         'Cartera': f'/home/leopach/tulipan/GB/GB-l/outputs/Diccionario_Retornar.pickle'
          }
 
 
 def load_dicts(load, inter=False, union=False):
-    """Loads the dicts stored in the set load, and returns them in dicts """
+    """Loads the dicts stored in the set load<set(paths.keys()),
+       and returns them in a dict """
+    assert load < set(paths.keys()), "The keys are not associated with a dict"
     dicts = {}
     for key in load:
         with open(paths[key], 'rb') as f:
@@ -32,6 +34,20 @@ def load_dicts(load, inter=False, union=False):
     return dicts
 
 
+def load_csv(PATH_TO_FILE, cols, drop_na=True):
+    """Loads given columns of  a csv,
+     PATH_TO_FILE -- pwd + name.csv
+     cols         -- set of columns
+     drop_na      -- bool, if True drops nan inplace
+       """
+
+    df = pd.read_csv(PATH_TO_FILE)
+    assert cols < set(df.columns), "Some columns are not in the csv"
+    df = df[list(cols)]
+
+    if drop_na:
+        df.dropna(inplace=True)
+    return df
 # cant_oblig = {}
 # for cc in intersection:
 #     cant_oblig[cc] = {}
@@ -57,18 +73,18 @@ def load_dicts(load, inter=False, union=False):
 #         df = pd.Series(dicts[key].keys())
 #         df.to_csv(f'{key}-Asignacion.csv')
 
-load = {'Evolucion'}
-
-dicts = load_dicts(load)
-
-comp = {'IDENTIFICACION', 'CANTIDAD_OBLIGACIONES', 'NOMBRE'}
-
-des = []
-evol = dicts['Evolucion']
-for key in evol:
-    for key2 in evol[key]:
-        if key2 not in comp:
-            des.append(evol[key][key2]['DESCRIPCION_PRODUCTO'])
-
-des = pd.Series(des)
-des.to_csv('des_raw_evol.csv')
+# load = {'Evolucion'}
+#
+# dicts = load_dicts(load)
+#
+# comp = {'IDENTIFICACION', 'CANTIDAD_OBLIGACIONES', 'NOMBRE'}
+#
+# des = []
+# evol = dicts['Evolucion']
+# for key in evol:
+#     for key2 in evol[key]:
+#         if key2 not in comp:
+#             des.append(evol[key][key2]['DESCRIPCION_PRODUCTO'])
+#
+# des = pd.Series(des)
+# des.to_csv('des_raw_evol.csv')
