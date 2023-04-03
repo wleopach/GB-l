@@ -92,6 +92,7 @@ clf = DenseClus(
     n_components=3,
     min_cluster_size=mcs,
     umap_combine_method="intersection_union_mapper",
+    random_state=SEED
     # metric='euclidean'
 )
 
