@@ -1,5 +1,9 @@
 import re
 import heapq
+from sklearn.model_selection import RandomizedSearchCV
+import hdbscan
+import logging
+from sklearn.metrics import make_scorer
 
 
 def normalize(s):
@@ -133,4 +137,36 @@ def check_cols(data):
         print(f"IN {k.split('/')[-1]} : {nf_cols[k]}")
 
 
+def tune_HDBSCAN(embedding, SEED, n_iter_search=20):
+    """Performs the hyperparameter tuning for HDBSCAN based on DBCV(ideal > 4.5)
+     embedding = DensClus embedding
+     SEED = random seed
+     n_iter_search = number of iterations through the collection
+                     of all possible parameters combinations
+     """
+    logging.captureWarnings(True)
+    hdb = hdbscan.HDBSCAN(gen_min_span_tree=True).fit(embedding)
 
+    # specify parameters and distributions to sample from
+    param_dist = {'min_samples': [100, 200, 300, 1000],
+                  'min_cluster_size': [10000, 20000, 30000, 40000, 50000],
+                  'cluster_selection_method': ['eom', 'leaf'],
+                  'metric': ['euclidean', 'manhattan', 'braycurtis','minkowski']
+                  }
+
+    # validity_scroer = "hdbscan__hdbscan___HDBSCAN__validity_index"
+    validity_scorer = make_scorer(hdbscan.validity.validity_index, greater_is_better=True)
+
+    random_search = RandomizedSearchCV(hdb
+                                       , param_distributions=param_dist
+                                       , n_iter=n_iter_search
+                                       , scoring=validity_scorer
+                                       , random_state=SEED)
+
+    random_search.fit(embedding)
+    with open("outputs/results.txt", 'w') as f:
+        f.write(f"Best Parameters {random_search.best_params_}\n")
+        f.write(f"DBCV score :{random_search.best_estimator_.relative_validity_}\n")
+    print(f"Best Parameters {random_search.best_params_}")
+    print(f"DBCV score :{random_search.best_estimator_.relative_validity_}")
+    return random_search

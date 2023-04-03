@@ -1,11 +1,12 @@
-from data_reader import load_dicts, load_csv, paths
+import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import time
 import seaborn as sns
 from denseclus import DenseClus
-import matplotlib.pyplot as plt
-
+from data_reader import load_dicts, load_csv, paths
+from utils import tune_HDBSCAN
+from plot import plot_join
 ###### Path to clustering data
 PATH = '/home/leopach/tulipan/GB/Base_de_Compras/Data_Mar_28/Data_2/evolucion_pagos2.csv'
 
@@ -83,12 +84,7 @@ for c in acpk:
 SEED = 42
 np.random.seed(SEED)  # set the random seed as best we can
 
-# clf = DenseClus(
-#     random_state=SEED,
-#     cluster_selection_method="leaf",
-#     min_cluster_size=5,
-#     umap_combine_method="intersection_union_mapper",
-# )
+
 mcs = 2200
 clf = DenseClus(
     cluster_selection_method="eom",
@@ -104,6 +100,7 @@ clf.fit(df)
 print('time fitting ', (time.time() - start) / 60)
 print(clf.n_components)
 
+embedding = clf.mapper_.embedding_
 labels = clf.score()
 
 result = pd.DataFrame(clf.mapper_.embedding_)
@@ -152,55 +149,22 @@ print(f"Percent of data retained: {coverage}")
 print(f"Total Clusters found: {total_clusters}")
 print(f"Cluster splits: {cluster_sizes}")
 
+random_search = tune_HDBSCAN(embedding, SEED, 50)
 
-####PLOTS
-_ = sns.jointplot(
-    x=clf.mapper_.embedding_[:, 0], y=clf.mapper_.embedding_[:, -1], kind="kde"
-)
-# plt.savefig(path_data + '/clustering/jointplot2.png')
-plt.show()
+# evalute the clusters
+labels = random_search.best_estimator_.labels_
+clustered = (labels >= 0)
 
-_ = sns.jointplot(
-    x=clf.mapper_.embedding_[:, 0],
-    y=clf.mapper_.embedding_[:, 1],
-    hue=labels,
-    kind="kde",
-)
-plt.show()
-# plt.savefig(path_data + '/clustering/jointplot2.png')
+coverage = np.sum(clustered) / embedding.shape[0]
+total_clusters = np.max(labels) + 1
+cluster_sizes = np.bincount(labels[clustered]).tolist()
 
-_ = clf.hdbscan_.condensed_tree_.plot(
-    select_clusters=True,
-    selection_palette=sns.color_palette("deep", np.unique(labels).shape[0]),
-)
-plt.show()
+print(f"Percent of data retained: {coverage}")
+print(f"Total Clusters found: {total_clusters}")
+print(f"Cluster splits: {cluster_sizes}")
 
-dic_cat = {}
-for c in categorical.columns:
-    # todos los valores de la categoria c frente a cada segmento
-    g = df.groupby(["SEGMENT"] + [c]).size()
-    # g.plot(
-    #     kind="bar", color=sns.color_palette("deep", np.unique(labels).shape[0])
-    # )
-    # plt.title(c)
-    # plt.savefig(path_data + '/'+c+'.png')
-    # plt.show()
-    # plt.figure(figsize=(30,8))
-    # todos los valores de la categoria c frente a la clase 1
-    m0 = g[0]
-    m0 = m0 / sum(m0)
-    m0.name = str(0)
-    m0 = m0.to_frame()
-    for k in [-1] + list(range(1, max(df['SEGMENT']) + 1)):
-        m1 = g[k]
-        m1 = m1 / sum(m1)
-        m1.name = str(k)
-        m1 = m1.to_frame()
-        m0 = m0.join(m1, how='outer')
-    m0.reset_index(inplace=True)
-    dic_cat[c] = m0
-    g[k].plot(
-        kind="bar", color=sns.color_palette("deep", np.unique(labels).shape[0])
-    )
-    plt.title(c + ' clase ' + str(k))
-    plt.show()
+plot_join(embedding[clustered, 0],embedding[clustered, 1], labels[clustered])
+plot_join(embedding[clustered, 1],embedding[clustered, 2], labels[clustered])
+
+
+
