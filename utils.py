@@ -1,4 +1,5 @@
 import re
+import json
 import heapq
 from sklearn.model_selection import RandomizedSearchCV
 import hdbscan
@@ -148,10 +149,10 @@ def tune_HDBSCAN(embedding, SEED, n_iter_search=20):
     hdb = hdbscan.HDBSCAN(gen_min_span_tree=True).fit(embedding)
 
     # specify parameters and distributions to sample from
-    param_dist = {'min_samples': [100, 200, 300, 1000],
-                  'min_cluster_size': [10000, 20000, 30000, 40000, 50000],
+    param_dist = {'min_samples': [10, 30, 60, 90],
+                  'min_cluster_size': [10000, 20000, 30000, 40000],
                   'cluster_selection_method': ['eom', 'leaf'],
-                  'metric': ['euclidean', 'manhattan', 'braycurtis','minkowski']
+                  'metric': ['euclidean', 'manhattan', 'braycurtis', 'minkowski']
                   }
 
     # validity_scroer = "hdbscan__hdbscan___HDBSCAN__validity_index"
@@ -164,9 +165,17 @@ def tune_HDBSCAN(embedding, SEED, n_iter_search=20):
                                        , random_state=SEED)
 
     random_search.fit(embedding)
-    with open("outputs/results.txt", 'w') as f:
+
+    with open(file_name(random_search.best_params_), 'w') as f:
         f.write(f"Best Parameters {random_search.best_params_}\n")
         f.write(f"DBCV score :{random_search.best_estimator_.relative_validity_}\n")
     print(f"Best Parameters {random_search.best_params_}")
     print(f"DBCV score :{random_search.best_estimator_.relative_validity_}")
     return random_search
+
+
+def file_name(dictionary, ext='.txt'):
+    """Returns a filename with the parameters of a model stored in a dictionary"""
+    params_str = json.dumps(dict, sort_keys=True)
+    filename = f"model_params_{params_str}{ext}"
+    return filename

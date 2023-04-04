@@ -1,11 +1,9 @@
-import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import time
-import seaborn as sns
 from denseclus import DenseClus
 from data_reader import load_dicts, load_csv, paths
-from utils import tune_HDBSCAN
+from utils import tune_HDBSCAN, file_name
 from plot import plot_join
 ###### Path to clustering data
 PATH = '/home/leopach/tulipan/GB/Base_de_Compras/Data_Mar_28/Data_2/evolucion_pagos2.csv'
@@ -150,7 +148,7 @@ print(f"Percent of data retained: {coverage}")
 print(f"Total Clusters found: {total_clusters}")
 print(f"Cluster splits: {cluster_sizes}")
 
-random_search = tune_HDBSCAN(embedding, SEED, 50)
+random_search = tune_HDBSCAN(embedding, SEED, 20)
 
 # evalute the clusters
 labels = random_search.best_estimator_.labels_
@@ -164,8 +162,12 @@ print(f"Percent of data retained: {coverage}")
 print(f"Total Clusters found: {total_clusters}")
 print(f"Cluster splits: {cluster_sizes}")
 
-plot_join(embedding[clustered, 0],embedding[clustered, 1], labels[clustered])
-plot_join(embedding[clustered, 1],embedding[clustered, 2], labels[clustered])
+plot_join(embedding[clustered, 0], embedding[clustered, 1], labels[clustered],
+          True, f"slice1-{file_name(random_search.best_params_, '.png')}")
+plot_join(embedding[clustered, 1], embedding[clustered, 2], labels[clustered],
+          True, f"slice2-{file_name(random_search.best_params_, '.png')}")
+plot_join(embedding[clustered, 0], embedding[clustered, 2], labels[clustered],
+          True, f"slice3-{file_name(random_search.best_params_, '.png')}")
 
 
 
