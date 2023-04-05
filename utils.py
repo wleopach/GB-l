@@ -154,7 +154,6 @@ def tune_HDBSCAN(embedding, SEED, param_dist, n_iter_search=20):
      n_iter_search = number of iterations through the collection
                      of all possible parameters combinations
      """
-    np.random.seed(SEED)
     logging.captureWarnings(True)
     hdb = hdbscan.HDBSCAN(gen_min_span_tree=True, prediction_data=True).fit(embedding)
 
@@ -201,7 +200,6 @@ def fit_DenseClus(df, params):
 
 
     """
-    np.random.seed(params['SEED'])  # set the random seed as best we can
     clf = DenseClus(
         cluster_selection_method=params['cluster_selection_method'],
         min_samples=params['min_samples'],
