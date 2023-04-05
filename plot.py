@@ -1,7 +1,10 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
-
+import config
+import numpy as np
 from plotnine import *
+
+np.random.seed(config.SEED)
 
 
 def bar(df, col):

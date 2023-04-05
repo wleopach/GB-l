@@ -1,10 +1,18 @@
 import re
 import json
 import heapq
-from sklearn.model_selection import RandomizedSearchCV
 import hdbscan
 import logging
+import time
+import pandas as pd
+import numpy as np
+import config
+from denseclus import DenseClus
 from sklearn.metrics import make_scorer
+from sklearn.model_selection import RandomizedSearchCV
+
+np.random.seed(config.SEED)
+PATH_TO_BP = 'Data/Best_Params'
 
 
 def normalize(s):
@@ -138,22 +146,19 @@ def check_cols(data):
         print(f"IN {k.split('/')[-1]} : {nf_cols[k]}")
 
 
-def tune_HDBSCAN(embedding, SEED, n_iter_search=20):
+def tune_HDBSCAN(embedding, SEED, param_dist, n_iter_search=20):
     """Performs the hyperparameter tuning for HDBSCAN based on DBCV(ideal > 4.5)
      embedding = DensClus embedding
      SEED = random seed
+     param_dist = dictionary with the params distribution
      n_iter_search = number of iterations through the collection
                      of all possible parameters combinations
      """
+    np.random.seed(SEED)
     logging.captureWarnings(True)
-    hdb = hdbscan.HDBSCAN(gen_min_span_tree=True).fit(embedding)
+    hdb = hdbscan.HDBSCAN(gen_min_span_tree=True, prediction_data=True).fit(embedding)
 
     # specify parameters and distributions to sample from
-    param_dist = {'min_samples': [10, 30, 60, 90],
-                  'min_cluster_size': [10000, 20000, 30000, 40000],
-                  'cluster_selection_method': ['eom', 'leaf'],
-                  'metric': ['euclidean', 'manhattan', 'braycurtis', 'minkowski']
-                  }
 
     # validity_scroer = "hdbscan__hdbscan___HDBSCAN__validity_index"
     validity_scorer = make_scorer(hdbscan.validity.validity_index, greater_is_better=True)
@@ -166,7 +171,7 @@ def tune_HDBSCAN(embedding, SEED, n_iter_search=20):
 
     random_search.fit(embedding)
 
-    with open(file_name(random_search.best_params_), 'w') as f:
+    with open(f"{PATH_TO_BP}/{file_name(random_search.best_params_)}", 'w') as f:
         f.write(f"Best Parameters {random_search.best_params_}\n")
         f.write(f"DBCV score :{random_search.best_estimator_.relative_validity_}\n")
     print(f"Best Parameters {random_search.best_params_}")
@@ -176,6 +181,60 @@ def tune_HDBSCAN(embedding, SEED, n_iter_search=20):
 
 def file_name(dictionary, ext='.txt'):
     """Returns a filename with the parameters of a model stored in a dictionary"""
-    params_str = json.dumps(dict, sort_keys=True)
+    params_str = json.dumps(dictionary, sort_keys=True)
     filename = f"model_params_{params_str}{ext}"
     return filename
+
+
+def fit_DenseClus(df, params):
+    """Fits a DenseClus and returns all relevant information
+        df = data
+        params = dict with the prameters for the DenseClus
+
+        returns -------------
+        embedding =  transformed data points
+        clustered = boolean vector decides if  not noise
+        result = data frame with the embedding a and LABELS
+        DBCV = score
+        coverage = notNoise/total-points
+
+
+
+    """
+    np.random.seed(params['SEED'])  # set the random seed as best we can
+    clf = DenseClus(
+        cluster_selection_method=params['cluster_selection_method'],
+        min_samples=params['min_samples'],
+        n_components=params['n_components'],
+        min_cluster_size=params['min_cluster_size'],
+        umap_combine_method=params['umap_combine_method'],
+        random_state=params['SEED']
+    )
+
+    start = time.time()
+    clf.fit(df)
+    print('time fitting ', (time.time() - start) / 60)
+    print(clf.n_components)
+    embedding = clf.mapper_.embedding_
+    labels = clf.score()
+
+    result = pd.DataFrame(clf.mapper_.embedding_)
+    result['LABELS'] = pd.Series(clf.score())
+    print('clusters ', len(set(result['LABELS'])) - 1)
+
+    lab_count = result['LABELS'].value_counts()
+    lab_count.name = 'LABEL_COUNT'
+
+    lab_normalized = result['LABELS'].value_counts(normalize=True)
+    lab_normalized.name = 'LABEL_PROPORTION'
+    print('ruido ', lab_normalized[-1])
+
+    clustered = result['LABELS'] >= 0
+    cnts = pd.DataFrame(clf.score())[0].value_counts()
+    cnts = cnts.reset_index()
+    cnts.columns = ['CLUSTER', 'COUNT']
+    print(cnts.sort_values(['CLUSTER']))
+    coverage = np.sum(clustered) / clf.mapper_.embedding_.shape[0]
+    print(f"Coverage {coverage}")
+    DBCV = clf.hdbscan_.relative_validity_
+    return embedding, clustered, result, DBCV, coverage

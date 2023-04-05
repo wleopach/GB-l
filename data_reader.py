@@ -1,7 +1,10 @@
 import os
 import pickle
 import pandas as pd
+import config
+import numpy as np
 
+np.random.seed(config.SEED)
 PATH = '/home/leopach/tulipan/GB/Base_de_Compras/Data_Mar_28/Data_2'
 
 files = os.listdir(PATH)

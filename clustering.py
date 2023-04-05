@@ -1,13 +1,15 @@
 import pandas as pd
 import numpy as np
 import time
+import config
 from denseclus import DenseClus
 from data_reader import load_dicts, load_csv, paths
-from utils import tune_HDBSCAN, file_name
+from utils import tune_HDBSCAN, file_name, fit_DenseClus
 from plot import plot_join
+np.random.seed(config.SEED)
 ###### Path to clustering data
 PATH = '/home/leopach/tulipan/GB/Base_de_Compras/Data_Mar_28/Data_2/evolucion_pagos2.csv'
-
+PATH_TO_PLOTS = "Data/Plots"
 ##### Set of keys to load
 load = {'Cartera'}
 
@@ -16,7 +18,7 @@ dicts = load_dicts(load)
 
 cartera = dicts['Cartera']
 
-##### Set of columns to load from csv
+##### Set of columns to load from evolucion_pagos2.csv
 cols_input = {'SALDO_CAPITAL_CLIENTE',
               'PLAZO_INICIAL_ADJ',
               'MESES_INICIALES_NO_PAGO',
@@ -79,51 +81,23 @@ acpk = ['ACPK BETA - ACUERDO DE PAGO CART CASTIGADA',
 for c in acpk:
     df.PORTAFOLIO = df.PORTAFOLIO.apply(lambda x: x.replace(c, 'ACPK BETA'))
 
-SEED = 42
-np.random.seed(SEED)  # set the random seed as best we can
+  # set the random seed as best we can
 
+params = dict()
+params['cluster_selection_method'] = "eom"
+params['min_samples'] = 90
+params['n_components'] = 3
+params['min_cluster_size'] = 2200
+params['umap_combine_method'] = "intersection_union_mapper"
+params['SEED'] = config.SEED
+embedding, clustered, result, DBCV, coverage = fit_DenseClus(df, params)
 
-mcs = 2200
-clf = DenseClus(
-    cluster_selection_method="eom",
-    min_samples=90,
-    n_components=3,
-    min_cluster_size=mcs,
-    umap_combine_method="intersection_union_mapper",
-    random_state=SEED
-    # metric='euclidean'
-)
-
-start = time.time()
-clf.fit(df)
-print('time fitting ', (time.time() - start) / 60)
-print(clf.n_components)
-
-embedding = clf.mapper_.embedding_
-labels = clf.score()
-
-result = pd.DataFrame(clf.mapper_.embedding_)
-result['LABELS'] = pd.Series(clf.score())
-print('clusters ', len(set(result['LABELS'])) - 1)
-
-lab_count = result['LABELS'].value_counts()
-lab_count.name = 'LABEL_COUNT'
-
-lab_normalized = result['LABELS'].value_counts(normalize=True)
-lab_normalized.name = 'LABEL_PROPORTION'
-print('ruido ', lab_normalized[-1])
-
-clustered = result['LABELS'] >= 0
-cnts = pd.DataFrame(clf.score())[0].value_counts()
-cnts = cnts.reset_index()
-cnts.columns = ['CLUSTER', 'COUNT']
-print(cnts.sort_values(['CLUSTER']))
-
-coverage = np.sum(clustered) / clf.mapper_.embedding_.shape[0]
-print(f"Coverage {coverage}")
+plot_join(embedding[clustered, 0], embedding[clustered, 1], result['LABELS'][clustered])
+plot_join(embedding[clustered, 1], embedding[clustered, 2], result['LABELS'][clustered])
+plot_join(embedding[clustered, 0], embedding[clustered, 2], result['LABELS'][clustered])
 
 categorical = df.select_dtypes(include=["object"])
-df["SEGMENT"] = clf.score()
+df["SEGMENT"] = result['LABELS']
 numerics = df.select_dtypes(include=[int, float]).drop(["SEGMENT"], 1).columns.tolist()
 
 df['IDENTIFICACION'] = df0['IDENTIFICACION']
@@ -140,7 +114,7 @@ cu751 = cu75[1:]
 cu25 = df[numerics + ["SEGMENT"]].groupby(["SEGMENT"]).quantile(0.25)
 cu251 = cu25[1:]
 
-print(f"DBCV score {clf.hdbscan_.relative_validity_}")
+print(f"DBCV score {DBCV}")
 total_clusters = result['LABELS'].max() + 1
 cluster_sizes = np.bincount(result['LABELS'][clustered]).tolist()
 
@@ -148,7 +122,15 @@ print(f"Percent of data retained: {coverage}")
 print(f"Total Clusters found: {total_clusters}")
 print(f"Cluster splits: {cluster_sizes}")
 
-random_search = tune_HDBSCAN(embedding, SEED, 20)
+######################### HDBSCAN Hyperparameter tunning#######################################
+param_dist = {'min_samples': [10, 20, 100],
+              'min_cluster_size': [5000, 1200, 3000],
+              'cluster_selection_method': ['eom', 'leaf'],
+              'metric': ['euclidean', 'minkowski'],
+              'p': [2]
+              }
+
+random_search = tune_HDBSCAN(embedding, config.SEED, param_dist, 20)
 
 # evalute the clusters
 labels = random_search.best_estimator_.labels_
@@ -163,11 +145,8 @@ print(f"Total Clusters found: {total_clusters}")
 print(f"Cluster splits: {cluster_sizes}")
 
 plot_join(embedding[clustered, 0], embedding[clustered, 1], labels[clustered],
-          True, f"slice1-{file_name(random_search.best_params_, '.png')}")
+          True, f"{PATH_TO_PLOTS}/slice1-{file_name(random_search.best_params_, '.png')}")
 plot_join(embedding[clustered, 1], embedding[clustered, 2], labels[clustered],
-          True, f"slice2-{file_name(random_search.best_params_, '.png')}")
+          True, f"{PATH_TO_PLOTS}/slice2-{file_name(random_search.best_params_, '.png')}")
 plot_join(embedding[clustered, 0], embedding[clustered, 2], labels[clustered],
-          True, f"slice3-{file_name(random_search.best_params_, '.png')}")
-
-
-
+          True, f"{PATH_TO_PLOTS}/slice3-{file_name(random_search.best_params_, '.png')}")
