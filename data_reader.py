@@ -1,9 +1,11 @@
 import os
+import random
 import pickle
 import pandas as pd
 import config
 import numpy as np
 
+random.seed(5)
 np.random.seed(config.SEED)
 PATH = '/home/leopach/tulipan/GB/Base_de_Compras/Data_Mar_28/Data_2'
 
@@ -17,9 +19,11 @@ paths = {'Pagos': f'{PATH}/Dicc_Datos_Propia_Pagos.pickle',
 
 
 def load_dicts(load, inter=False, union=False):
+
     """Loads the dicts stored in the set load<set(paths.keys()),
        and returns them in a dict """
-    assert load < set(paths.keys()), "The keys are not associated with a dict"
+    np.random.seed(config.SEED)
+    assert load <= set(paths.keys()), "The keys are not associated with a dict"
     dicts = {}
     for key in load:
         with open(paths[key], 'rb') as f:
@@ -43,7 +47,7 @@ def load_csv(PATH_TO_FILE, cols, drop_na=True):
      cols         -- set of columns
      drop_na      -- bool, if True drops nan inplace
        """
-
+    np.random.seed(config.SEED)
     df = pd.read_csv(PATH_TO_FILE)
     assert cols < set(df.columns), "Some columns are not in the csv"
     df = df[list(cols)]

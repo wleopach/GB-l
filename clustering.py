@@ -1,15 +1,15 @@
-import pandas as pd
+import random
 import numpy as np
-import time
 import config
-from denseclus import DenseClus
 from data_reader import load_dicts, load_csv, paths
-from utils import tune_HDBSCAN, file_name, fit_DenseClus
+from utils import tune_HDBSCAN, fit_DenseClus, evaluate_clus, predict_new
 from plot import plot_join
+import joblib
+random.seed(5)
 np.random.seed(config.SEED)
 ###### Path to clustering data
 PATH = '/home/leopach/tulipan/GB/Base_de_Compras/Data_Mar_28/Data_2/evolucion_pagos2.csv'
-PATH_TO_PLOTS = "Data/Plots"
+
 ##### Set of keys to load
 load = {'Cartera'}
 
@@ -90,7 +90,7 @@ params['n_components'] = 3
 params['min_cluster_size'] = 2200
 params['umap_combine_method'] = "intersection_union_mapper"
 params['SEED'] = config.SEED
-embedding, clustered, result, DBCV, coverage = fit_DenseClus(df, params)
+embedding, clustered, result, DBCV, coverage, clf = fit_DenseClus(df, params)
 
 plot_join(embedding[clustered, 0], embedding[clustered, 1], result['LABELS'][clustered])
 plot_join(embedding[clustered, 1], embedding[clustered, 2], result['LABELS'][clustered])
@@ -123,30 +123,27 @@ print(f"Total Clusters found: {total_clusters}")
 print(f"Cluster splits: {cluster_sizes}")
 
 ######################### HDBSCAN Hyperparameter tunning#######################################
-param_dist = {'min_samples': [10, 20, 100],
+param_dist = {'min_samples': [10, 9, 8],
               'min_cluster_size': [5000, 1200, 3000],
               'cluster_selection_method': ['eom', 'leaf'],
               'metric': ['euclidean', 'minkowski'],
               'p': [2]
               }
 
-random_search = tune_HDBSCAN(embedding, config.SEED, param_dist, 20)
+random_search, best = tune_HDBSCAN(embedding, config.SEED, param_dist, 20)
 
-# evalute the clusters
-labels = random_search.best_estimator_.labels_
-clustered = (labels >= 0)
+evaluate_clus(random_search, embedding, True)
 
-coverage = np.sum(clustered) / embedding.shape[0]
-total_clusters = np.max(labels) + 1
-cluster_sizes = np.bincount(labels[clustered]).tolist()
 
-print(f"Percent of data retained: {coverage}")
-print(f"Total Clusters found: {total_clusters}")
-print(f"Cluster splits: {cluster_sizes}")
+test_points = np.random.random(size=(50, 3)) *  10
 
-plot_join(embedding[clustered, 0], embedding[clustered, 1], labels[clustered],
-          True, f"{PATH_TO_PLOTS}/slice1-{file_name(random_search.best_params_, '.png')}")
-plot_join(embedding[clustered, 1], embedding[clustered, 2], labels[clustered],
-          True, f"{PATH_TO_PLOTS}/slice2-{file_name(random_search.best_params_, '.png')}")
-plot_join(embedding[clustered, 0], embedding[clustered, 2], labels[clustered],
-          True, f"{PATH_TO_PLOTS}/slice3-{file_name(random_search.best_params_, '.png')}")
+predict_new(best, test_points)
+
+predict_new(clf.hdbscan_, test_points)
+
+
+filename = 'model.joblib'
+joblib.dump(clf, filename)
+
+clf2 = joblib.load('model.joblib')
+predict_new(clf2.hdbscan_, test_points)

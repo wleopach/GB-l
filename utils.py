@@ -4,16 +4,20 @@ import heapq
 import hdbscan
 import logging
 import time
+import joblib
+import random
 import pandas as pd
 import numpy as np
 import config
 from denseclus import DenseClus
 from sklearn.metrics import make_scorer
 from sklearn.model_selection import RandomizedSearchCV
+from plot import plot_join
 
+random.seed(5)
 np.random.seed(config.SEED)
 PATH_TO_BP = 'Data/Best_Params'
-
+PATH_TO_PLOTS = "Data/Plots"
 
 def normalize(s):
     replacements = (
@@ -154,6 +158,7 @@ def tune_HDBSCAN(embedding, SEED, param_dist, n_iter_search=20):
      n_iter_search = number of iterations through the collection
                      of all possible parameters combinations
      """
+    np.random.seed(SEED)
     logging.captureWarnings(True)
     hdb = hdbscan.HDBSCAN(gen_min_span_tree=True, prediction_data=True).fit(embedding)
 
@@ -166,7 +171,7 @@ def tune_HDBSCAN(embedding, SEED, param_dist, n_iter_search=20):
                                        , param_distributions=param_dist
                                        , n_iter=n_iter_search
                                        , scoring=validity_scorer
-                                       , random_state=SEED)
+                                       , random_state= SEED)
 
     random_search.fit(embedding)
 
@@ -175,7 +180,9 @@ def tune_HDBSCAN(embedding, SEED, param_dist, n_iter_search=20):
         f.write(f"DBCV score :{random_search.best_estimator_.relative_validity_}\n")
     print(f"Best Parameters {random_search.best_params_}")
     print(f"DBCV score :{random_search.best_estimator_.relative_validity_}")
-    return random_search
+    best = hdbscan.HDBSCAN(**random_search.best_params_,
+                           gen_min_span_tree=True, prediction_data=True).fit(embedding)
+    return random_search, best
 
 
 def file_name(dictionary, ext='.txt'):
@@ -200,13 +207,15 @@ def fit_DenseClus(df, params):
 
 
     """
+    np.random.seed(params['SEED'])
     clf = DenseClus(
+        random_state=params['SEED'],
         cluster_selection_method=params['cluster_selection_method'],
         min_samples=params['min_samples'],
         n_components=params['n_components'],
         min_cluster_size=params['min_cluster_size'],
-        umap_combine_method=params['umap_combine_method'],
-        random_state=params['SEED']
+        umap_combine_method=params['umap_combine_method']
+
     )
 
     start = time.time()
@@ -235,4 +244,56 @@ def fit_DenseClus(df, params):
     coverage = np.sum(clustered) / clf.mapper_.embedding_.shape[0]
     print(f"Coverage {coverage}")
     DBCV = clf.hdbscan_.relative_validity_
-    return embedding, clustered, result, DBCV, coverage
+    return embedding, clustered, result, DBCV, coverage, clf
+
+def evaluate_clus(random_search, embedding, plot=False):
+    """Evaluates the clusters produced by the best model found by random_search
+       random_search = output of the RandomizedSearchCV
+
+    """
+    # evalute the clusters
+    labels = random_search.best_estimator_.labels_
+    clustered = (labels >= 0)
+
+    coverage = np.sum(clustered) / embedding.shape[0]
+    total_clusters = np.max(labels) + 1
+    cluster_sizes = np.bincount(labels[clustered]).tolist()
+
+    print(f"Percent of data retained: {coverage}")
+    print(f"Total Clusters found: {total_clusters}")
+    print(f"Cluster splits: {cluster_sizes}")
+
+    if plot:
+        plot_join(embedding[clustered, 0], embedding[clustered, 1], labels[clustered],
+                  True, f"{PATH_TO_PLOTS}/slice1-{file_name(random_search.best_params_, '.png')}")
+        plot_join(embedding[clustered, 1], embedding[clustered, 2], labels[clustered],
+                  True, f"{PATH_TO_PLOTS}/slice2-{file_name(random_search.best_params_, '.png')}")
+        plot_join(embedding[clustered, 0], embedding[clustered, 2], labels[clustered],
+                  True, f"{PATH_TO_PLOTS}/slice3-{file_name(random_search.best_params_, '.png')}")
+
+
+def predict_new(hdbscan_model, test_points):
+    """
+    Predicts approximated clusters for new points, given a fitted hdbscan
+    :param hdbscan_model: fitted hdbscan, it might be clf.hdbscan_
+    :param test_points: new points to be clustered
+    :return: labels and strength
+    """
+    return hdbscan.approximate_predict(hdbscan_model, test_points)
+
+def save_model(model, name):
+    """
+    saves a model as .joblib file
+    :param model: fitted model, such as denseclus or hdbscan
+    :param name: name of the file
+    :return:
+    """
+    joblib.dump(model,filename=f"{name}.joblib")
+
+def load_model(path_to_model):
+    """
+    loads a .joblib model
+    :param path_to_model:path to the model
+    :return: model
+    """
+    joblib.load(path_to_model)
