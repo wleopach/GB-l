@@ -72,11 +72,12 @@ def plot_join(x, y, labels, save=False, path=None):
     plt.show()
 
 
-# _ = clf.hdbscan_.condensed_tree_.plot(
-#     select_clusters=True,
-#     selection_palette=sns.color_palette("deep", np.unique(labels).shape[0]),
-# )
-# plt.show()
+def plot_tree(clf, labels):
+    _ = clf.hdbscan_.condensed_tree_.plot(
+        select_clusters=True,
+        selection_palette=sns.color_palette("deep", np.unique(labels).shape[0]),
+    )
+    plt.show()
 #
 # dic_cat = {}
 # for c in categorical.columns:

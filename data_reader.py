@@ -19,9 +19,16 @@ paths = {'Pagos': f'{PATH}/Dicc_Datos_Propia_Pagos.pickle',
 
 
 def load_dicts(load, inter=False, union=False):
+    """
+    Loads the dicts stored in the set load<set(paths.keys()),
+       and returns them in a dict
+    :param load: set with the keys to the dicts
+    :param inter: boolean decides if the intersection's length is printed
+    :param union: boolean decides if the union's length is printed
+    :return: dictionary with the loaded dicts
+    """
 
-    """Loads the dicts stored in the set load<set(paths.keys()),
-       and returns them in a dict """
+
     np.random.seed(config.SEED)
     assert load <= set(paths.keys()), "The keys are not associated with a dict"
     dicts = {}

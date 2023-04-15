@@ -1,4 +1,6 @@
 import re
+import ray
+import os
 import json
 import heapq
 import hdbscan
@@ -9,6 +11,8 @@ import random
 import pandas as pd
 import numpy as np
 import config
+import csv
+import copy
 from denseclus import DenseClus
 from sklearn.metrics import make_scorer
 from sklearn.model_selection import RandomizedSearchCV
@@ -19,7 +23,13 @@ np.random.seed(config.SEED)
 PATH_TO_BP = 'Data/Best_Params'
 PATH_TO_PLOTS = "Data/Plots"
 
-def normalize(s):
+
+def normalize(s) -> str:
+    """
+    replace vowels with spanish accents
+    :param s: word with possible spanish accents
+    :return: string without spanish accents
+    """
     replacements = (
         ("á", "a"),
         ("é", "e"),
@@ -32,8 +42,37 @@ def normalize(s):
     return s
 
 
-def Limpieza_Final_Str(arg):
+def Corregir_Espacios(arg) -> (str):
+    """
+    Transform a string with spaces into a string without spaces
+    :param arg: word with possible spaces
+    :return: string without spaces
+    """
+    return (re.sub(" +", " ", arg).rstrip().lstrip())
+
+
+def Limpieza_Final_Str(arg) -> (str):
+    """
+    Transform a string to upper case without spaces
+    :param arg: word
+    :return: string upper case without spaces
+    """
     return (re.sub(" +", " ", normalize(arg)).rstrip().lstrip().upper())
+
+
+def Confirmar_Archivo(nombre_archivo) -> bool:
+    """
+    Checks if the file extension is csv or xlsx
+    :param nombre_archivo:
+    :return:
+    """
+    try:
+        if ".csv" in nombre_archivo or ".xlsx" in nombre_archivo:
+            return (True)
+        else:
+            return (False)
+    except:
+        return (False)
 
 
 def get_df(DF):
@@ -171,7 +210,7 @@ def tune_HDBSCAN(embedding, SEED, param_dist, n_iter_search=20):
                                        , param_distributions=param_dist
                                        , n_iter=n_iter_search
                                        , scoring=validity_scorer
-                                       , random_state= SEED)
+                                       , random_state=SEED)
 
     random_search.fit(embedding)
 
@@ -180,8 +219,13 @@ def tune_HDBSCAN(embedding, SEED, param_dist, n_iter_search=20):
         f.write(f"DBCV score :{random_search.best_estimator_.relative_validity_}\n")
     print(f"Best Parameters {random_search.best_params_}")
     print(f"DBCV score :{random_search.best_estimator_.relative_validity_}")
+    DBCV = random_search.best_estimator_.relative_validity_
     best = hdbscan.HDBSCAN(**random_search.best_params_,
                            gen_min_span_tree=True, prediction_data=True).fit(embedding)
+
+    if DBCV > 0.45:
+        save_model(best, f"hdbscan{str(DBCV).split('.')[1]}")
+
     return random_search, best
 
 
@@ -246,6 +290,7 @@ def fit_DenseClus(df, params):
     DBCV = clf.hdbscan_.relative_validity_
     return embedding, clustered, result, DBCV, coverage, clf
 
+
 def evaluate_clus(random_search, embedding, plot=False):
     """Evaluates the clusters produced by the best model found by random_search
        random_search = output of the RandomizedSearchCV
@@ -281,6 +326,7 @@ def predict_new(hdbscan_model, test_points):
     """
     return hdbscan.approximate_predict(hdbscan_model, test_points)
 
+
 def save_model(model, name):
     """
     saves a model as .joblib file
@@ -288,7 +334,8 @@ def save_model(model, name):
     :param name: name of the file
     :return:
     """
-    joblib.dump(model,filename=f"{name}.joblib")
+    joblib.dump(model, filename=f"Data/Models/{name}.joblib")
+
 
 def load_model(path_to_model):
     """
@@ -296,4 +343,130 @@ def load_model(path_to_model):
     :param path_to_model:path to the model
     :return: model
     """
-    joblib.load(path_to_model)
+    return joblib.load(path_to_model)
+
+
+def min_max_scaler(column):
+    """
+    Min max scaler for a column
+    :param column:
+    :return: scaled column
+    """
+    return (column - column.min()) / (column.max() - column.min())
+
+
+def z_score(column):
+    mean = np.mean(column)
+    std = np.std(column)
+    return (column - mean) / std
+
+
+def log_transform(column):
+    return np.log(column)
+
+
+Lista_A = ["ID", "FECHA", "CEDULA"]
+
+
+@ray.remote
+def Leer_Datos_Carpetas(tupla):
+    archivo = tupla[-1]
+    Diccionario_Retorno = dict()
+    if ".csv" in archivo:
+        try:
+            Diccionario_Retorno[archivo] = pd.read_csv(archivo, sep=";")
+            if len(Diccionario_Retorno[archivo].columns) <= 2:
+                Diccionario_Retorno[archivo] = pd.read_csv(archivo, sep=",")
+            try:
+                all_columns = list(Diccionario_Retorno[archivo])
+                Diccionario_Retorno[archivo][all_columns] = Diccionario_Retorno[archivo][all_columns].astype(str)
+            except:
+                pass
+        except:
+            Diccionario_Retorno[archivo] = pd.read_csv(archivo, sep=";", encoding="ISO-8859-1")
+            if len(Diccionario_Retorno[archivo].columns) <= 2:
+                Diccionario_Retorno[archivo] = pd.read_csv(archivo, sep=",", encoding="ISO-8859-1")
+            try:
+                all_columns = list(Diccionario_Retorno[archivo])
+                Diccionario_Retorno[archivo][all_columns] = Diccionario_Retorno[archivo][all_columns].astype(str)
+            except:
+                pass
+
+    elif "xlsx" in archivo:
+        try:
+            filepath = archivo
+            df_dict = pd.read_excel(filepath, sheet_name=None, dtype='object')
+            # Diccionario_Retorno[archivo.replace(".xlsx","")] = pd.read_excel(archivo)
+            for key in df_dict.keys():
+                if len(df_dict[key].columns) <= 2:
+                    try:
+                        s = csv.Sniffer()
+                        separador = s.sniff(list(df_dict[key].iloc[0])[0]).delimiter
+                        df_dict[key] = df_dict[key][df_dict[key].columns[0]].str.split(separador, expand=True)
+                    except:
+                        # del df_dict[key]
+                        continue
+                try:
+                    for key in df_dict.keys():
+                        if len(set([str(j).upper() for j in list(df_dict[key].columns)]).intersection(
+                                set(Lista_A))) == 0:
+                            for i in range(8):
+                                if len(set([str(j).upper() for j in list(df_dict[key].columns)]).intersection(
+                                        set(Lista_A))) > 0:
+                                    columnas = list(df_dict[key].iloc[i])
+                                    df_dict[key] = df_dict[key].iloc[i:]
+                                    df_dict[key].columns = columnas
+                                    break
+                except:
+                    pass
+                try:
+                    all_columns = list(df_dict[key])
+                    df_dict[key][all_columns] = df_dict[key][all_columns].astype(str)
+                except:
+                    pass
+            Diccionario_Retorno = copy.deepcopy(df_dict)
+            for key in Diccionario_Retorno.keys():
+                try:
+                    Diccionario_Retorno[key].columns = [normalize(Limpieza_Final_Str(str(arg))).replace(" ", "_") for
+                                                        arg in list(Diccionario_Retorno[key].columns)]
+                except:
+                    pass
+        except:
+            pass
+    else:
+        Diccionario_Retorno["Error"].append(archivo)
+    return ({tupla: Diccionario_Retorno})
+
+
+def tables(path):
+    """
+    Given a path returns all csv or xlsx files contained in the file structure with root
+    at path
+    :param path:
+    :return: list of paths to tables(csv or xlsx)
+    """
+    paths = []
+    if os.path.isdir(path):
+        for filename in os.listdir(path):
+            childpath = os.path.join(path, filename)
+            if re.search(r'\.csv$|\.xlsx$', filename):
+                paths.append(childpath)
+            elif os.path.isdir(childpath):
+                paths += tables(childpath)
+    return paths
+
+def mermaid(path):
+    if os.path.isdir(path):
+        for filename in os.listdir(path):
+
+            childpath = os.path.join(path, filename)
+            with open(f"tree.txt", 'a') as file:
+                source = path.split('/')[-1].replace(' ', '')
+                target = normalize(filename.replace(' ', ''))
+                target = target.replace('(1)','')
+                if ".csv" in target or ".xlsx" in target:
+                    target = f"file{hash(target)}[({target})]"
+
+                file.write(f"{source}-->{target}\n")
+            if os.path.isdir(childpath) and os.listdir(childpath):
+                mermaid(childpath)
