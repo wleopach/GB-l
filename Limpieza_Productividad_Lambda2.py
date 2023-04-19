@@ -73,22 +73,25 @@ Ruta_Guardar = "/home/tulipan1637/storage2/Misc/Velez/smart/192.168.81.150/smart
 big = Dicc_Datos_Productividad
 ############################SHEET SELECTION##################################
 
-#***************************IN Acumulado... *********************************
+# ***************************IN Acumulado... *********************************
 
 acumulado = {k: value for k, value in big.items() if k[0] == 'Acumulado'}
 tmo = {key: value['TMO'] for key, value in acumulado.items() if 'TMO' in value}
 prod = {key: value['PRODUCTIVIDAD'] for key, value in acumulado.items() if 'PRODUCTIVIDAD' in value}
 prod[('Acumulado', '2021', 'ENERO')] = acumulado[('Acumulado', '2021', 'ENERO')]['PRODUCTIVIAD']
+gestion_whatsapp = {key: value[key2] for key, value in acumulado.items() for key2 in value \
+                    if "ID_CUSTOMER" in value[key2].columns and 'WhatsApp' in key2}
+gestion = {key: value[key2] for key, value in acumulado.items() for key2 in value \
+           if "ID_CUSTOMER" in value[key2].columns and 'WhatsApp' not in key2}
 
-#***************************IN Encuesta... **********************************
+# ***************************IN Encuesta... **********************************
 encuesta = {k: value for k, value in big.items() if k[0] == 'Encuesta'}
 detalle = {key: v['Detalle Encuestas'] for key, v in encuesta.items()}
 
-#***************************IN Planta... *********************************
+# ***************************IN Planta... *********************************
 
-planta ={k: value for k, value in big.items() if k[0] == 'Planta'}
-hoja1 = {key:val['Hoja1'] for key,val in planta.items()}
-
+planta = {k: value for k, value in big.items() if k[0] == 'Planta'}
+hoja1 = {key: val['Hoja1'] for key, val in planta.items()}
 
 for key in hoja1:
     col_map = {}
@@ -100,12 +103,15 @@ for key in hoja1:
     hoja1[key] = hoja1[key].rename(columns=col_map)
 
 cols_h1 = [set(value.columns) for value in hoja1.values()]
-ch1_inter =set.intersection(*cols_h1 )
+ch1_inter = set.intersection(*cols_h1)
 
 for key in hoja1:
-    hoja1[key]=hoja1[key][list(ch1_inter)]
+    hoja1[key] = hoja1[key][list(ch1_inter)]
 
 #############################Wrap into a dict################################
+
+
+### name ('Acumulado', dict, key name)
 Dicc_Prod_Nuevo = dict()
 fechas = [t[1:] for t in prod]
 for fecha in fechas:
@@ -124,3 +130,19 @@ for fecha in fechas_planta:
     name = ('Planta', planta, 'PERSONAL')
     Dicc_Prod_Nuevo.setdefault(fecha, dict())
     Dicc_Prod_Nuevo[fecha][name[2]] = name[1][(name[0], fecha[0], fecha[1])]
+
+fechas_gestion = {t[1:] for t in gestion}
+for fecha in fechas_gestion:
+    name = ('Acumulado', gestion, 'GESTION')
+    Dicc_Prod_Nuevo.setdefault(fecha, dict())
+    Dicc_Prod_Nuevo[fecha][name[2]] = name[1][(name[0], fecha[0], fecha[1])]
+
+fechas_gestionwp = {t[1:] for t in gestion_whatsapp}
+for fecha in fechas_gestionwp:
+    name = ('Acumulado', gestion_whatsapp, 'GESTION_WHATSAPP')
+    Dicc_Prod_Nuevo.setdefault(fecha, dict())
+    Dicc_Prod_Nuevo[fecha][name[2]] = name[1][(name[0], fecha[0], fecha[1])]
+
+
+with open("Dicc_Datos_Productividad_Nuevo" +".pickle", 'wb') as handle:
+    pickle.dump(Dicc_Prod_Nuevo, handle, protocol=pickle.HIGHEST_PROTOCOL)

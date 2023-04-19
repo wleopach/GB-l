@@ -4,22 +4,23 @@ from tqdm import tqdm
 from utils import tune_HDBSCAN, fit_DenseClus, evaluate_clus, predict_new, save_model
 from plot import plot_join, plot_tree
 from data_preparation import df, df0
+from clustering_analysis import Analysis
 
 np.random.seed(config.SEED)
 
 ########################################Set params for DenseClus####################
 params = dict()
 params['cluster_selection_method'] = "eom"
-params['min_samples'] = 10
+params['min_samples'] = 4
 params['n_components'] = 3
-params['min_cluster_size'] = 10000
+params['min_cluster_size'] = 3000
 params['umap_combine_method'] = "intersection_union_mapper"
 params['SEED'] = None
 DBCV = -1
 
 progress_bar = tqdm(desc='Fitting DenseClus')
 
-while DBCV < 0.3:
+while DBCV < 0:
     # call the fit_DenseClus function
     embedding, clustered, result, DBCV, coverage, clf = fit_DenseClus(df, params)
 
@@ -33,6 +34,7 @@ while DBCV < 0.3:
     # close the progress bar
 progress_bar.close()
 
+cl_analysis = Analysis(df0, result["LABELS"])
 ##########################################Plot bivariate and tree ###############################
 plot_join(embedding[clustered, 0], embedding[clustered, 1], result['LABELS'][clustered])
 plot_join(embedding[clustered, 1], embedding[clustered, 2], result['LABELS'][clustered])
