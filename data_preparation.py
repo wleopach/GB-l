@@ -1,5 +1,6 @@
 import random
 import numpy as np
+import pandas as pd
 import config
 from data_reader import load_dicts, load_csv
 
@@ -40,11 +41,32 @@ ids_csv = set(df0['IDENTIFICACION'].astype(str).unique())
 intersection = ids_cartera & ids_csv
 
 ##### Calculate mean of TASA_INTERES_CORRIENTE
+tic = []
+for key in cartera:
+    for key2 in cartera[key]:
+        if 'BBVA' not in key2:
+            for key3 in cartera[key][key2]:
+                if key3 not in {'CANTIDAD_OBLIGACIONES', 'NOMBRE','OBLIGACIONES'}:
+                    tic+=list(cartera[key][key2][key3]['TASA_INTERES_CTE'])
+
+tic = [float(x) for x in tic if x != 'None']
+tic = pd.DataFrame(tic)
+mean = tic.mean()
+
+for key in cartera:
+    for key2 in cartera[key]:
+        if 'BBVA' in key2:
+            for key3 in cartera[key][key2]:
+                if key3 not in {'CANTIDAD_OBLIGACIONES', 'NOMBRE','OBLIGACIONES'}:
+                    cartera[key][key2][key3]['TASA_INTERES_CTE'] = {mean[0]}
+
 ti_dict = {}
 for cc in intersection:
     ti_list = []
     for key in cartera[cc]:
+
         for key2 in (set(cartera[cc][key]) - {'CANTIDAD_OBLIGACIONES', 'OBLIGACIONES', 'NOMBRE'}):
+
             val = cartera[cc][key][key2]['TASA_INTERES_CTE'].pop()
             if val != 'None':
                 ti_list += [float(val)]
@@ -59,6 +81,7 @@ df0 = df0[df0['IDENTIFICACION'].astype(str).isin(intersection)]
 df0['TI_MEAN'] = df0['IDENTIFICACION'].apply(lambda cc: ti_dict[str(cc)])
 df0.dropna(inplace=True)
 df = df0[list(cols_input) + ['TI_MEAN']].copy()
+#df = df0[list(cols_input)].copy()
 
 df.SALDO_CAPITAL_CLIENTE = df.SALDO_CAPITAL_CLIENTE.astype(int)
 
@@ -79,3 +102,8 @@ acpk = ['ACPK BETA - ACUERDO DE PAGO CART CASTIGADA',
 for c in acpk:
     df.PORTAFOLIO = df.PORTAFOLIO.apply(lambda x: x.replace(c, 'ACPK BETA'))
 
+# add some Gaussian noise with mean 0 and standard deviation [0.1, 0.1, 0.1, 0.001, 1000, 0.001, 0.01]
+numerics = df.select_dtypes(include=[int, float]).columns.tolist()
+noise = np.random.normal(loc=0, scale=[0.1, 0.1, 0.1, 0.001, 1000, 0.001, 0.01], size=df[numerics].shape)
+
+df[numerics] = df[numerics] + noise

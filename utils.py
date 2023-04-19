@@ -455,7 +455,13 @@ def tables(path):
                 paths += tables(childpath)
     return paths
 
+
 def mermaid(path):
+    """
+    Produces the mermaid code for the filestructure as a graph
+    :param path: Path to root folder
+    :return:
+    """
     if os.path.isdir(path):
         for filename in os.listdir(path):
 
@@ -463,10 +469,49 @@ def mermaid(path):
             with open(f"tree.txt", 'a') as file:
                 source = path.split('/')[-1].replace(' ', '')
                 target = normalize(filename.replace(' ', ''))
-                target = target.replace('(1)','')
+                target = target.replace('(1)', '')
                 if ".csv" in target or ".xlsx" in target:
                     target = f"file{hash(target)}[({target})]"
 
                 file.write(f"{source}-->{target}\n")
             if os.path.isdir(childpath) and os.listdir(childpath):
                 mermaid(childpath)
+
+
+# k = -1
+# def mermaid_dict(dictionary):
+#     """on progress"""
+#     global k
+#     k += 1
+#     assert isinstance(dictionary, dict), 'Please pass a dictionary to the function'
+#     structure = set()
+#     structure1 = set()
+#     root = type(dictionary)
+#     for key, value in dictionary.items():
+#         if isinstance(key, str):
+#             source = f"{key}:::{type(value).__name__}"
+#         elif isinstance(key, tuple):
+#             source = f"{type(key).__name__}-l{len(key)}:::{type(value).__name__}"
+#         elif isinstance(key, dict):
+#             source = f"{type(key).__name__}-{k}:::{type(value).__name__}"
+#
+#     for st in structure:
+#         print(st)
+#     for st2 in structure1:
+#         print(st2)
+
+
+
+def dict_dfs_to_mermaid(dictionary):
+    for key in dictionary:
+        text = Limpieza_Final_Str(key).replace(' ', '_')
+        text = text.replace('%','Por')
+        print(f"key1(P,y,m):::dict-->{text}({text}):::df")
+        for col in dictionary[key]:
+            text2 = Limpieza_Final_Str(col).replace(' ', '_')
+            text2 = text2.replace('%', 'Por')
+            print(f"{text}-->{text2}:::str")
+
+
+
+

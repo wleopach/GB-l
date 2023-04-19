@@ -10,16 +10,16 @@ np.random.seed(config.SEED)
 ########################################Set params for DenseClus####################
 params = dict()
 params['cluster_selection_method'] = "eom"
-params['min_samples'] = 4
+params['min_samples'] = 10
 params['n_components'] = 3
-params['min_cluster_size'] = 3000
+params['min_cluster_size'] = 10000
 params['umap_combine_method'] = "intersection_union_mapper"
 params['SEED'] = None
-DBCV = 0
+DBCV = -1
 
 progress_bar = tqdm(desc='Fitting DenseClus')
 
-while DBCV < 0.45:
+while DBCV < 0.3:
     # call the fit_DenseClus function
     embedding, clustered, result, DBCV, coverage, clf = fit_DenseClus(df, params)
 
@@ -57,7 +57,6 @@ cu751 = cu75[1:]
 cu25 = df[numerics + ["SEGMENT"]].groupby(["SEGMENT"]).quantile(0.25)
 cu251 = cu25[1:]
 
-
 save_model(clf, f"clf{str(DBCV).split('.')[1]}")
 total_clusters = result['LABELS'].max() + 1
 cluster_sizes = np.bincount(result['LABELS'][clustered]).tolist()
@@ -67,8 +66,8 @@ print(f"Total Clusters found: {total_clusters}")
 print(f"Cluster splits: {cluster_sizes}")
 
 ######################### HDBSCAN Hyperparameter tunning#######################################
-param_dist = {'min_samples': [3, 5, 10],
-              'min_cluster_size': [5000, 12000, 2200],
+param_dist = {'min_samples': [7, 8, 9],
+              'min_cluster_size': [15000, 5000, 3000],
               'cluster_selection_method': ['eom', 'leaf'],
               'metric': ['euclidean', 'minkowski', 'manhattan'],
               'p': [2]
@@ -77,4 +76,3 @@ param_dist = {'min_samples': [3, 5, 10],
 random_search, best = tune_HDBSCAN(embedding, config.SEED, param_dist, 20)
 
 evaluate_clus(random_search, embedding, True)
-
