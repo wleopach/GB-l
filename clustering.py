@@ -20,7 +20,7 @@ DBCV = -1
 
 progress_bar = tqdm(desc='Fitting DenseClus')
 
-while DBCV < 0:
+while DBCV < 0.45:
     # call the fit_DenseClus function
     embedding, clustered, result, DBCV, coverage, clf = fit_DenseClus(df, params)
 
@@ -33,7 +33,8 @@ while DBCV < 0:
 
     # close the progress bar
 progress_bar.close()
-
+result.to_csv(f'Data/Clustering_Output/results.csv')
+df0.to_csv('Data/Clustering_Output/input.csv')
 cl_analysis = Analysis(df0, result["LABELS"])
 ##########################################Plot bivariate and tree ###############################
 plot_join(embedding[clustered, 0], embedding[clustered, 1], result['LABELS'][clustered])
@@ -41,23 +42,6 @@ plot_join(embedding[clustered, 1], embedding[clustered, 2], result['LABELS'][clu
 plot_join(embedding[clustered, 0], embedding[clustered, 2], result['LABELS'][clustered])
 plot_tree(clf, result['LABELS'])
 
-categorical = df.select_dtypes(include=["object"])
-df["SEGMENT"] = result['LABELS']
-numerics = df.select_dtypes(include=[int, float]).drop(["SEGMENT"], 1).columns.tolist()
-
-df['IDENTIFICACION'] = df0['IDENTIFICACION']
-df['ID_TABLA'] = df0['ID_TABLA']
-dfA = df.loc[df['ID_TABLA'] == 'Evolucion_2022_OCTUBRE']
-mm = dfA.index
-print((dfA['SEGMENT'] > -1).sum(), ' cartera_en segmento')
-
-medianas = df[numerics + ["SEGMENT"]].groupby(["SEGMENT"]).median()
-medianas1 = medianas[1:]
-
-cu75 = df[numerics + ["SEGMENT"]].groupby(["SEGMENT"]).quantile(0.75)
-cu751 = cu75[1:]
-cu25 = df[numerics + ["SEGMENT"]].groupby(["SEGMENT"]).quantile(0.25)
-cu251 = cu25[1:]
 
 save_model(clf, f"clf{str(DBCV).split('.')[1]}")
 total_clusters = result['LABELS'].max() + 1
@@ -78,3 +62,15 @@ param_dist = {'min_samples': [7, 8, 9],
 random_search, best = tune_HDBSCAN(embedding, config.SEED, param_dist, 20)
 
 evaluate_clus(random_search, embedding, True)
+
+#########Compare DensClus with  random_search and choose the best#####################
+
+validity_= random_search.best_estimator_.relative_validity_
+if DBCV < validity_:
+    labels_ = random_search.best_estimator_.labels_
+    result['LABELS'] = labels_
+
+result.to_csv(f'Data/Clustering_Output/results.csv')
+df0.to_csv('Data/Clustering_Output/input.csv')
+cl_analysis = Analysis(df0, result["LABELS"])
+

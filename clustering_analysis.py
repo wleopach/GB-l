@@ -113,5 +113,6 @@ class Analysis:
                 kind="bar", color=sns.color_palette("deep", np.unique(clustered["LABELS"]).shape[0])
             )
             plt.title(c + ' clase ' + str(k))
+            plt.show()
 
 

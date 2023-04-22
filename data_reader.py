@@ -14,7 +14,8 @@ files = os.listdir(PATH)
 paths = {'Pagos': f'{PATH}/Dicc_Datos_Propia_Pagos.pickle',
          'Evolucion': f'{PATH}/Dicc_Datos_Propia_Evolucion.pickle',
          'Asignacion': f'{PATH}/Dicc_Datos_Propia_Asignacion.pickle',
-         'Cartera': f'/home/leopach/tulipan/GB/GB-l/outputs/Diccionario_Retornar.pickle'
+         'Cartera': f'/home/leopach/tulipan/GB/GB-l/outputs/Diccionario_Retornar.pickle',
+         'Produccion': f'outputs/Dicc_Datos_Productividad_Nuevo.pickle'
          }
 
 
@@ -27,7 +28,6 @@ def load_dicts(load, inter=False, union=False):
     :param union: boolean decides if the union's length is printed
     :return: dictionary with the loaded dicts
     """
-
 
     np.random.seed(config.SEED)
     assert load <= set(paths.keys()), "The keys are not associated with a dict"
@@ -49,7 +49,7 @@ def load_dicts(load, inter=False, union=False):
 
 
 def load_csv(PATH_TO_FILE, cols, drop_na=True):
-    """Loads given columns of  a csv,
+    """Loads given columns of  a csv as a dataframe,
      PATH_TO_FILE -- pwd + name.csv
      cols         -- set of columns
      drop_na      -- bool, if True drops nan inplace
@@ -60,6 +60,14 @@ def load_csv(PATH_TO_FILE, cols, drop_na=True):
     df = df[list(cols)]
 
     if drop_na:
+        df.dropna(inplace=True)
+    return df
+
+
+def load_excel(PATH_TO_FILE, sheet_name=None, drop_na=True):
+    np.random.seed(config.SEED)
+    df = pd.read_excel(PATH_TO_FILE, sheet_name=sheet_name, dtype='object')
+    if drop_na and sheet_name:
         df.dropna(inplace=True)
     return df
 # cant_oblig = {}
