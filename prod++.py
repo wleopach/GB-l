@@ -5,6 +5,7 @@ from tqdm import tqdm
 import gc
 import ray
 import random
+
 load = {'Produccion'}
 
 prod = load_dicts(load)['Produccion']
@@ -38,25 +39,22 @@ def process_customer(t: tuple):
     row = t[1]
     new_dict.setdefault(row['ID_CUSTOMER'], dict())
     key = t[0]
-    new_dict[row['ID_CUSTOMER']].setdefault((key[0],key[1],t[2]),set())
+    new_dict[row['ID_CUSTOMER']].setdefault((key[0], key[1], t[2]), set())
     new_dict[row['ID_CUSTOMER']][(key[0], key[1], t[2])].add(tuple(row[cols[t[2]]]))
-    
+    return  new_dict
 
 
 num_cpus = psutil.cpu_count(logical=True)
 ray.init(num_cpus=int(num_cpus), ignore_reinit_error=True, include_dashboard=False)
-refs = [process_customer.remote(t) for t in tqdm(tuples)]
-pis = ray.get(refs)
-pis = [a for a in pis if a if a != "error"]
+for t in tqdm(tuples):
+    process_customer.remote(t)
 print('Wrapping results')
-Diccionario_Com = {k: v for element in pis for k, v in element.items()}
+Diccionario_Com = new_dict.copy()
 gc.collect()
 while ray.is_initialized():
     ray.shutdown()
 print("Ray_Seguro")
 
-del pis
-del refs
 
 # Get a random key-value pair
 random_key, random_value = random.choice(list(Diccionario_Com.items()))
