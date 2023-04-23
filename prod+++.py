@@ -14,7 +14,7 @@ prod = load_dicts(load)['Produccion']
 cod_ = ['ID_CUSTOMER', 'DATE', 'TELEPHONE', 'CALIFICACION', 'DESCRIPTION_COD1', 'COD1']
 gestion = {key: value['GESTION'][cod_] for key, value in prod.items() if 'GESTION' in value}
 cc_g = [set(value['ID_CUSTOMER']) for value in gestion.values()]
-tuples1 = [(key, row, 'GESTION')
+tuples1 = [(key, tuple(row), 'GESTION')
            for key, value in tqdm(gestion.items(), colour="green")
            for index, row in value.iterrows() if row['ID_CUSTOMER'] != 'nan']
 
@@ -23,7 +23,7 @@ gestion_wp = {key: value['GESTION_WHATSAPP'][act_] for key, value in prod.items(
               value}
 cc_gw = [set(value['ID_CUSTOMER']) for value in gestion_wp.values()]
 ccw = set.union(*cc_gw)
-tuples2 = [(key, row, 'GESTION_WHATSAPP')
+tuples2 = [(key, tuple(row), 'GESTION_WHATSAPP')
            for key, value in tqdm(gestion_wp.items(), colour="green")
            for index, row in value.iterrows() if row['ID_CUSTOMER'] != 'nan']
 
@@ -37,10 +37,15 @@ cols = {'GESTION': cod_[1:],
 
 @ray.remote
 def process_customer(t: tuple):
+    """
+    Given a tuple t this method converts it into a dict according to {(row_id,date,tag):{row_info}}
+    :param t: (date, row, tag)
+    :return: {(row_id,date,tag):{row_info}}
+    """
     row = t[1]
-    customer_id = row['ID_CUSTOMER']
+    customer_id = row[0]
     key = t[0]
-    customer_info = tuple(row[cols[t[2]]])
+    customer_info = tuple(row[1:])
     return {(customer_id, key, t[2]): {customer_info}}
 
 
