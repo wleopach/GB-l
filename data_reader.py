@@ -7,15 +7,16 @@ import numpy as np
 
 random.seed(5)
 np.random.seed(config.SEED)
-PATH = '/home/leopach/tulipan/GB/Base_de_Compras/Data_Mar_28/Data_2'
+PATH = 'Data/Diccionarios'
 
 files = os.listdir(PATH)
 
 paths = {'Pagos': f'{PATH}/Dicc_Datos_Propia_Pagos.pickle',
          'Evolucion': f'{PATH}/Dicc_Datos_Propia_Evolucion.pickle',
          'Asignacion': f'{PATH}/Dicc_Datos_Propia_Asignacion.pickle',
-         'Cartera': f'/home/leopach/tulipan/GB/GB-l/outputs/Diccionario_Retornar.pickle',
-         'Produccion': f'outputs/Dicc_Datos_Productividad_Nuevo.pickle'
+         'Cartera': f'{PATH}/Diccionario_Retornar.pickle',
+         'Produccion': f'{PATH}/Dicc_Datos_Productividad_Nuevo.pickle',
+         'Productividad': f'{PATH}/Productividad_Nuevo.pickle'
          }
 
 

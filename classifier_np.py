@@ -10,7 +10,6 @@ import pandas as pd
 class ClassifierNp:
     """
        A class representing a sklearn Random Forest classifier for mixed dataframes.
-
        Attributes:
            clustered (pd.DataFrame): A dataframe of clustered data.
            no_clustered (pd.DataFrame): A dataframe of non-clustered data.
@@ -19,11 +18,9 @@ class ClassifierNp:
     def __init__(self, clustered, no_clustered):
         """
                Initializes a ClassifierNp object.
-
                Args:
                    clustered (pd.DataFrame): A dataframe of clustered data.
                    no_clustered (pd.DataFrame): A dataframe of non-clustered data.
-
                Raises:
                    AssertionError:  columns in no_clustered is not contained in the columns in clustered.
                """
@@ -34,10 +31,8 @@ class ClassifierNp:
     def predict(self, classifier: str):
         """
                Predicts the labels of the non-clustered data using the specified classifier.
-
                Args:
                    classifier (str): The name of the classifier to use.
-
                Returns:
                    np.ndarray: An array of predicted labels for the non-clustered data.
                """

@@ -1,7 +1,7 @@
 import sys
 from data_reader import load_dicts
 
-load = {'Pagos', 'Evolucion', 'Asignacion', 'Cartera'}
+load = {'Pagos', 'Evolucion', 'Asignacion', 'Cartera', 'Productividad'}
 
 dicts = load_dicts(load)
 

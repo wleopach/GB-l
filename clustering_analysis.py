@@ -2,6 +2,8 @@ import seaborn as sns
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+
+
 class Analysis:
     """
     A class to analyze numerical and categorical data by class labels.
@@ -45,18 +47,17 @@ class Analysis:
 
         assert len(original_df) == len(labels), "The labels and the original data must have the same length"
         self.original_df = original_df
-        self.labels = labels
-
+        self.labels = labels.astype(str)
 
     def num_analysis(self):
         """
         Returns descriptive statistics (mean, std, median, 25th and 75th percentiles) of the numerical data
-        grouped by class labels.
+        grouped by class labels, contained in a dictionary
 
         Returns
         -------
-        tuple
-            A tuple with the following pandas DataFrames:
+        dict
+            A dict with the following pandas DataFrames:
             - std: the standard deviation of each numerical variable for each class label.
             - mean: the mean of each numerical variable for each class label.
             - medians: the median of each numerical variable for each class label.
@@ -66,7 +67,7 @@ class Analysis:
         """
 
         numerics = self.original_df.select_dtypes(include=[int, float]).columns.tolist()
-        clustered = self.original_df[numerics]
+        clustered = self.original_df[numerics].copy()
         clustered['LABELS'] = self.labels
         gb_obj = clustered.groupby(['LABELS'])
         mean = gb_obj.mean()
@@ -75,8 +76,7 @@ class Analysis:
         cu75 = gb_obj.quantile(0.75)
         cu25 = gb_obj.quantile(0.25)
 
-        return std, mean, medians, cu25, cu75
-
+        return {'std': std, 'mean': mean, 'medians': medians, 'cu25': cu25, 'cu75': cu75}
 
     def cat_analysis(self):
         """
@@ -91,28 +91,59 @@ class Analysis:
         """
 
         categorical = self.original_df.select_dtypes(include=["object"]).columns.tolist()
-        clustered = self.original_df[categorical]
+        clustered = self.original_df[categorical].copy()
         clustered['LABELS'] = self.labels
-        dic_cat = {}
-        for c in categorical:
-            # todos los valores de la categoria c frente a cada segmento
-            g = clustered.groupby(["LABELS"] + [c]).size()
-            m0 = g[0]
-            m0 = m0 / sum(m0)
-            m0.name = str(0)
-            m0 = m0.to_frame()
-            for k in [-1] + list(range(1, int(max(clustered["LABELS"])) + 1)):
-                m1 = g[k]
-                m1 = m1 / sum(m1)
-                m1.name = str(k)
-                m1 = m1.to_frame()
-                m0 = m0.join(m1, how='outer')
-            m0.reset_index(inplace=True)
-            dic_cat[c] = m0
-            g[k].plot(
-                kind="bar", color=sns.color_palette("deep", np.unique(clustered["LABELS"]).shape[0])
-            )
-            plt.title(c + ' clase ' + str(k))
-            plt.show()
+        gb_obj = clustered.groupby('LABELS')
+        mode = gb_obj.apply(lambda x: x.mode().iloc[0])
+        mode = mode.drop(columns=['LABELS'])
 
+        return {'mode': mode}
 
+    def merge(self):
+        """This function merges the numeric and categorical
+         analysis results obtained from the num_analysis() and cat_analysis()
+          methods of an object, and returns a dictionary and a pandas dataframe.
+
+        :return:
+            reform:         A dictionary that contains the merged analysis results.
+                            The dictionary has a tuple as the key, where the first element
+                            of the tuple is the original key in the numeric or categorical
+                            analysis dictionary, and the second element of the tuple is the feature name.
+                            The value of each key is a dictionary that contains the analysis results for the
+                            corresponding feature.
+
+            merged_df:      A pandas dataframe that contains the merged analysis results.
+                            Each row of the dataframe corresponds to a feature, and each column
+                            corresponds to an analysis metric.
+                """
+        numerics = self.num_analysis()
+        categorical = self.cat_analysis()
+        numerics.update(categorical)
+        for k in numerics:
+            numerics[k] = numerics[k].to_dict()
+        reform = {(outerKey, innerKey): values
+                  for outerKey, innerDict in numerics.items()
+                  for innerKey, values in
+                  innerDict.items()}
+        merged_df = pd.DataFrame(reform)
+        return reform, merged_df
+
+# #########################unit test##########################################33
+# data = pd.read_csv('outputs/res_clus52-11.csv')
+# labels = data.pop('LABELS')
+# cols = ['PORCION_PAGOS', 'ACCION_CONTACTO',
+#         'PORTAFOLIO', 'DIAS_DE_MORA_ACTUAL', 'CP', 'IDENTIFICACION',
+#         'SALDO_CAPITAL_CLIENTE', 'ID_TABLA', 'PORCION_PAGO',
+#         'MESES_INICIALES_NO_PAGO', 'PLAZO_INICIAL_ADJ', 'MOTIVO', 'PLAZO',
+#         'MONTO', 'CUOTA', 'ESTADO', 'CONDONACION', 'TASA', 'TI_MEAN']
+# df_original = data[cols].copy()
+#
+# cla = Analysis(df_original, labels)
+# numerics = cla.num_analysis()
+# categorics = cla.cat_analysis()
+# numerics.update(categorics)
+# for k in numerics:
+#     numerics[k] = numerics[k].to_dict()
+# reform = {(outerKey, innerKey): values for outerKey, innerDict in numerics.items() for innerKey, values in
+#           innerDict.items()}
+# merged_df = pd.DataFrame(reform)
