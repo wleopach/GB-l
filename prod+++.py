@@ -11,14 +11,14 @@ load = {'Produccion'}
 
 prod = load_dicts(load)['Produccion']
 
-cod_ = ['ID_CUSTOMER', 'DATE', 'TELEPHONE', 'CALIFICACION', 'DESCRIPTION_COD1', 'COD1']
+cod_ = ['ID_CUSTOMER', 'DATE', 'TELEPHONE', 'CALIFICACION', 'DESCRIPTION_COD1', 'COD1', 'CARTERA']
 gestion = {key: value['GESTION'][cod_] for key, value in prod.items() if 'GESTION' in value}
 cc_g = [set(value['ID_CUSTOMER']) for value in gestion.values()]
 tuples1 = [(key, tuple(row), 'GESTION')
            for key, value in tqdm(gestion.items(), colour="green")
            for index, row in value.iterrows() if row['ID_CUSTOMER'] != 'nan']
 
-act_ = ['ID_CUSTOMER', 'DATE', 'CUSTOMER_PHONE', 'CUSTOMER_CHARS', 'DESCRIPTION_COD_ACT']
+act_ = ['ID_CUSTOMER', 'DATE', 'CUSTOMER_PHONE', 'CUSTOMER_CHARS', 'DESCRIPTION_COD_ACT', 'CARTERA']
 gestion_wp = {key: value['GESTION_WHATSAPP'][act_] for key, value in prod.items() if 'GESTION_WHATSAPP' in
               value}
 cc_gw = [set(value['ID_CUSTOMER']) for value in gestion_wp.values()]
