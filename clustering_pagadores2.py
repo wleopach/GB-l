@@ -160,9 +160,9 @@ evolucion_pagos['PLAZO_INICIAL_ADJ']=0
 for h in range(len(cedulasajusteplazolist)):
     dfcc=evolucion_pagos[(evolucion_pagos['IDENTIFICACION']==cedulasajusteplazolist[h][0]) & (evolucion_pagos['OBLIGACION']==cedulasajusteplazolist[h][1])]
     iccs=dfcc.index
-    nonuls = [p for p in dfcc['PLAZO_INICIAL'] if str(p)!='nan']
+    nonuls = [p for p in dfcc['PLAZO_INICIAL'] if str(p) not in ['nan', 'SIN_INFORMACION']]
     dfcc2=evolucion_pagos[(evolucion_pagos['IDENTIFICACION']==cedulasajusteplazolist[h][0])]
-    nonuls2 = [p for p in dfcc2['PLAZO_INICIAL'] if str(p)!='nan']
+    nonuls2 = [p for p in dfcc2['PLAZO_INICIAL'] if str(p)not in ['nan', 'SIN_INFORMACION']]
     if nonuls!=[]:
         evolucion_pagos.loc[iccs,'PLAZO_INICIAL_ADJ'] = max([float(n) for n in nonuls])
     elif nonuls2!=[]:
@@ -171,6 +171,7 @@ for h in range(len(cedulasajusteplazolist)):
         evolucion_pagos.loc[iccs,'PLAZO_INICIAL_ADJ'] = 90
     mask0=evolucion_pagos[evolucion_pagos['PLAZO_INICIAL_ADJ']==0]
     evolucion_pagos.loc[mask0.index,'PLAZO_INICIAL_ADJ'] = evolucion_pagos.loc[mask0.index,'PLAZO_INICIAL'] 
+evolucion_pagos['PLAZO_INICIAL_ADJ'].replace('SIN_INFORMACION', 90, inplace=True)
 evolucion_pagos['PLAZO_INICIAL_ADJ']=evolucion_pagos['PLAZO_INICIAL_ADJ'].astype(float)
 evolucion_pagos.loc[np.isnan(evolucion_pagos['PLAZO_INICIAL_ADJ'])]=90
 evolucion_pagos.loc[evolucion_pagos['PLAZO_INICIAL_ADJ']==0]=90

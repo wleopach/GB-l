@@ -9,7 +9,8 @@ from tqdm import tqdm
 random.seed(5)
 np.random.seed(config.SEED)
 ###### Path to clustering data
-PATH = '/home/leopach/tulipan/GB/Base_de_Compras/Data_Mar_28/Data_2/evolucion_pagos2.csv'
+#PATH = '/home/leopach/tulipan/GB/Base_de_Compras/Data_Mar_28/Data_2/evolucion_pagos2.csv'
+PATH = 'outputs/evolucion_pagos2.csv'
 
 # **********************Set of keys to load**********************************************
 load = {'Cartera'}

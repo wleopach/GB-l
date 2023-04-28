@@ -2,6 +2,9 @@ import seaborn as sns
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import os
+import shutil
+import zipfile
 
 
 class Analysis:
@@ -69,7 +72,7 @@ class Analysis:
         numerics = self.original_df.select_dtypes(include=[int, float]).columns.tolist()
         clustered = self.original_df[numerics].copy()
         clustered['LABELS'] = self.labels
-        gb_obj = clustered.groupby(['LABELS'])
+        gb_obj = clustered.groupby('LABELS')
         mean = gb_obj.mean()
         std = gb_obj.std()
         medians = gb_obj.median()
@@ -128,6 +131,28 @@ class Analysis:
         merged_df = pd.DataFrame(reform)
         return reform, merged_df
 
+    def save_res(self, folder_name: str, path='.'):
+
+        path_to_folder = os.path.join(path, folder_name)
+        os.makedirs(path_to_folder, exist_ok=True)
+        for key, df in self.num_analysis().items():
+            # Create the filename for the CSV file
+            filename = f"{key}.csv"
+            # Save the DataFrame to a CSV file in the output folder
+            df.to_csv(os.path.join(path_to_folder, filename), index=True)
+        for key, df in self.cat_analysis().items():
+            # Create the filename for the CSV file
+            filename = f"{key}.csv"
+            # Save the DataFrame to a CSV file in the output folder
+            df.to_csv(os.path.join(path_to_folder, filename), index=True)
+
+        _, merged = self.merge()
+        merged.to_csv(os.path.join(path_to_folder, 'merged.csv'), index=True)
+        zip_filename = f"{path_to_folder}.zip"
+        with zipfile.ZipFile(zip_filename, 'w', compression=zipfile.ZIP_DEFLATED) as zip_file:
+            for root, dirs, files in os.walk('path_to_folder'):
+                for file in files:
+                    zip_file.write(os.path.join(root, file))
 # #########################unit test##########################################33
 # data = pd.read_csv('outputs/res_clus52-11.csv')
 # labels = data.pop('LABELS')
