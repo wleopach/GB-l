@@ -137,4 +137,5 @@ col_numerics = ['PORCION_PAGO', 'SALDO_CAPITAL_CLIENTE', 'PORCION_PAGOS',
                 'TI_MEAN']
 noise = np.random.normal(loc=0, scale=[0.00001, 1000, 0.00001, 0.1, 0.1, 0.1, 0.001], size=df[col_numerics].shape)
 
+df.to_csv('Data/Clustering_Output/input')
 df[col_numerics] = df[col_numerics] + noise

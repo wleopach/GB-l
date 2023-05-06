@@ -132,9 +132,19 @@ class Analysis:
         return reform, merged_df
 
     def save_res(self, folder_name: str, path='.'):
+        """
+        Zips the results in a given path with a given name
+        :param folder_name: name of the folder
+        :param path: path where the zip file is going to be created
+        :return: None
+        """
 
         path_to_folder = os.path.join(path, folder_name)
+
         os.makedirs(path_to_folder, exist_ok=True)
+        self.original_df.to_csv(os.path.join(path_to_folder, 'input.csv'), index=True)
+        self.labels.to_csv(os.path.join(path_to_folder, 'results.csv'), index=True)
+
         for key, df in self.num_analysis().items():
             # Create the filename for the CSV file
             filename = f"{key}.csv"
@@ -150,9 +160,41 @@ class Analysis:
         merged.to_csv(os.path.join(path_to_folder, 'merged.csv'), index=True)
         zip_filename = f"{path_to_folder}.zip"
         with zipfile.ZipFile(zip_filename, 'w', compression=zipfile.ZIP_DEFLATED) as zip_file:
-            for root, dirs, files in os.walk('path_to_folder'):
+            for root, dirs, files in os.walk(path_to_folder):
                 for file in files:
                     zip_file.write(os.path.join(root, file))
+
+    def col_in_clus(self, sel_col: str, sts: set, num: bool):
+        """
+        Retrievs a set of statistics for a given column
+        :param col: attribute  to be observed
+        :param sts: set of statistics to include
+        :param num: if the column is numerical or not
+        :return: data frame with the statistical information
+        """
+        if num:
+            numerics = self.num_analysis()
+            num_columns = sts & set(numerics.keys())
+            num_series_list = [numerics[st][sel_col] for st in num_columns]
+            # Create a dictionary of column names and Series
+            data = {col: series for col, series in zip(num_columns, num_series_list)}
+            frame = pd.DataFrame(data)
+            return frame
+        else:
+            categorical = self.cat_analysis()
+
+            cat_columns = sts & set(categorical.keys())
+            # Define the list of Series
+
+            cat_series_list = [categorical[st][sel_col] for st in cat_columns]
+
+
+            data = {col: series for col, series in zip(cat_columns, cat_series_list)}
+            frame = pd.DataFrame(data)
+            return frame
+
+            # Create a DataFrame from the dictionary
+
 # #########################unit test##########################################33
 # data = pd.read_csv('outputs/res_clus52-11.csv')
 # labels = data.pop('LABELS')
